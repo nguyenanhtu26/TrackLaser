@@ -1,3 +1,4 @@
+
 from skimage.filters import threshold_local
 import numpy as np
 import argparse
@@ -61,7 +62,7 @@ def four_point_transform(image, pts):
 
 
 # Doc file video (khoảng 30 khung/s)
-cap = cv2.VideoCapture("video/testVideo.mp4")
+cap = cv2.VideoCapture("video/testVideo2.mp4")
 
 # Khai báo tạo video
 fourcc = cv2.VideoWriter_fourcc(*'XVID')
@@ -124,21 +125,23 @@ while True:
     # Step 3: Apply a Perspective Transform & Threshold
     # apply the four point transform to obtain a top-down
     # view of the original image
-    warped = four_point_transform(orig, screenCnt.reshape(4, 2) * ratio)
-    # convert the warped image to grayscale, then threshold it
-    # to give it that 'black and white' paper effect
-    warped = cv2.cvtColor(warped, cv2.COLOR_BGR2GRAY)
-    T = threshold_local(warped, 11, offset=10, method="gaussian")
-    warped = (warped > T).astype("uint8") * 255
-    # show the original and scanned images
+    try:
+        warped = four_point_transform(orig, screenCnt.reshape(4, 2) * ratio)
+        # convert the warped image to grayscale, then threshold it
+        # to give it that 'black and white' paper effect
+        # warped = cv2.cvtColor(warped, cv2.COLOR_BGR2GRAY)
+        # T = threshold_local(warped, 11, offset=10, method="gaussian")
+        # warped = (warped > T).astype("uint8") * 255
+        # show the original and scanned images
+        fileNameImage = 'anhOut%s.jpg' % (frameThu)
+        print(fileNameImage)
+        cv2.imwrite(fileNameImage, warped)
+    except:
+        print("Lỗi ở frame thứ", frameThu)
 
-    # Step 4: Video writer
-    outVideo.write(warped)
-
-    key = cv2.waitKey(1) & 0xff  # Neu nhan q thi thoat
-    if key == ord('q'):
-        break
+    # key = cv2.waitKey(1) & 0xff  # Neu nhan q thi thoat
+    # if key == ord('q'):
+    #     break
 
 # Hiện thị video
-outVideo.release()
 cv2.destroyAllWindows()
