@@ -61,7 +61,7 @@ def four_point_transform(image, pts):
     return warped
 
 
-# Doc file video (khoảng 30 khung/s)
+# Doc file video (khoảng 60 khung/s)
 cap = cv2.VideoCapture("video/testVideo2.mp4")
 
 # Khai báo tạo video
@@ -78,10 +78,13 @@ while True:
     else:
         frameThu += 1
 
-    # print(frame.shape)
-    ratio = frame.shape[0] / 400.0  # Chiều cao ảnh chuẩn hóa(chia cho 500)
+    fileNameOrig = 'anhOrig%s.jpg' % (frameThu)
+    print(fileNameOrig)
+    cv2.imwrite(fileNameOrig, frame)
+
+    ratio = frame.shape[0] / 500.0  # Chiều cao ảnh chuẩn hóa(chia cho 500)
     orig = frame.copy()
-    frame = imutils.resize(frame, height=400)
+    frame = imutils.resize(frame, height=500)
 
     # convert the image to grayscale, blur it, and find edges
     # in the image

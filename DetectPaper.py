@@ -13,18 +13,19 @@ def order_points(pts):
     # such that the first entry in the list is the top-left,
     # the second entry is the top-right, the third is the
     # bottom-right, and the fourth is the bottom-left
-    rect = np.zeros((4, 2), dtype="float32")
+    rect = np.zeros((4, 2), dtype="float32")  # Ma trận 0 kích thước 4x2, kiểu float32
+    # Ma trận tương ứng là tọa độ của điểm  trên-trái, trên-phải, dưới-trái, dưới-phải
     # the top-left point will have the smallest sum, whereas
     # the bottom-right point will have the largest sum
-    s = pts.sum(axis=1)
-    rect[0] = pts[np.argmin(s)]
-    rect[2] = pts[np.argmax(s)]
+    s = pts.sum(axis=1)  # Tính tổng theo hàng
+    rect[0] = pts[np.argmin(s)]  # Trên-trái
+    rect[2] = pts[np.argmax(s)]  # Dưới-phải
     # now, compute the difference between the points, the
     # top-right point will have the smallest difference,
     # whereas the bottom-left will have the largest difference
     diff = np.diff(pts, axis=1)
-    rect[1] = pts[np.argmin(diff)]
-    rect[3] = pts[np.argmax(diff)]
+    rect[1] = pts[np.argmin(diff)]  # top-right
+    rect[3] = pts[np.argmax(diff)]  # bottom-left
     # return the ordered coordinates
     return rect
 
@@ -72,7 +73,7 @@ def four_point_transform(image, pts):
 # Step 1: Edge Detection
 # load the image and compute the ratio of the old height
 # to the new height, clone it, and resize it
-image = cv2.imread("image/imageTest.jpg")
+image = cv2.imread("test.jpg")
 ratio = image.shape[0] / 500.0
 orig = image.copy()
 image = imutils.resize(image, height=500)
@@ -94,6 +95,7 @@ edged = cv2.Canny(gray, 75, 200)
 cnts = cv2.findContours(edged.copy(), cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
 cnts = imutils.grab_contours(cnts)
 cnts = sorted(cnts, key=cv2.contourArea, reverse=True)[:5]
+
 # loop over the contours
 for c in cnts:
     # approximate the contour
@@ -105,23 +107,23 @@ for c in cnts:
         screenCnt = approx
         break
 # show the contour (outline) of the piece of paper
-# print("STEP 2: Find contours of paper")
-# cv2.drawContours(image, [screenCnt], -1, (0, 255, 0), 2)
-# cv2.imshow("Outline", image)
-# cv2.waitKey(0)
-# cv2.destroyAllWindows()
-
-# Step 3: Apply a Perspective Transform & Threshold
-# apply the four point transform to obtain a top-down
-# view of the original image
-warped = four_point_transform(orig, screenCnt.reshape(4, 2) * ratio)
-# convert the warped image to grayscale, then threshold it
-# to give it that 'black and white' paper effect
-warped = cv2.cvtColor(warped, cv2.COLOR_BGR2GRAY)
-T = threshold_local(warped, 11, offset=3, method="gaussian")
-warped = (warped > T).astype("uint8") * 255
-# show the original and scanned images
-print("STEP 3: Apply perspective transform")
-cv2.imshow("Original", imutils.resize(orig, height=650))
-cv2.imshow("Scanned", imutils.resize(warped, height=650))
+print("STEP 2: Find contours of paper")
+cv2.drawContours(image, [screenCnt], -1, (0, 255, 0), 2)
+cv2.imshow("Outline", image)
 cv2.waitKey(0)
+cv2.destroyAllWindows()
+
+# # Step 3: Apply a Perspective Transform & Threshold
+# # apply the four point transform to obtain a top-down
+# # view of the original image
+# warped = four_point_transform(orig, screenCnt.reshape(4, 2) * ratio)
+# # convert the warped image to grayscale, then threshold it
+# # to give it that 'black and white' paper effect
+# warped = cv2.cvtColor(warped, cv2.COLOR_BGR2GRAY)
+# T = threshold_local(warped, 11, offset=3, method="gaussian")
+# warped = (warped > T).astype("uint8") * 255
+# # show the original and scanned images
+# print("STEP 3: Apply perspective transform")
+# cv2.imshow("Original", imutils.resize(orig, height=650))
+# cv2.imshow("Scanned", imutils.resize(warped, height=650))
+# cv2.waitKey(0)
