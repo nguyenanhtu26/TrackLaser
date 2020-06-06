@@ -1,131 +1,145 @@
-import sys
+# import the necessary packages
+
+from skimage.filters import threshold_local
 import numpy as np
-import pandas as pd
-import matplotlib.pyplot as plt
+import argparse
 import cv2
-from lxml.html.builder import IMG
-
-sys.path.append('../src')
-from ocr.helpers import implt, resize, ratio
-
-# matplotlib inline
-plt.rcParams['figure.figsize'] = (9.0, 9.0)
-
-IMG = "test"
-# Loading images and ploting it (converting to RGB from BGR)
-image = cv2.cvtColor(cv2.imread("../data/pages/%s.jpg" % IMG), cv2.COLOR_BGR2RGB)
-implt(image)
+import imutils
 
 
-def edges_det(img, min_val, max_val):
-    """ Preprocessing (gray, thresh, filter, border) + Canny edge detection """
-    img = cv2.cvtColor(resize(img), cv2.COLOR_BGR2GRAY)
-
-    # Applying blur and threshold
-    img = cv2.bilateralFilter(img, 9, 75, 75)
-    img = cv2.adaptiveThreshold(img, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 115, 4)
-    implt(img, 'gray', 'Adaptive Threshold')
-
-    # Median blur replace center pixel by median of pixels under kelner
-    # => removes thin details
-    img = cv2.medianBlur(img, 11)
-
-    # Add black border - detection of border touching pages
-    # Contour can't touch side of image
-    img = cv2.copyMakeBorder(img, 5, 5, 5, 5, cv2.BORDER_CONSTANT, value=[0, 0, 0])
-    implt(img, 'gray', 'Median Blur + Border')
-
-    return cv2.Canny(img, min_val, max_val)
-
-
-# Edge detection ()
-edges_image = edges_det(image, 200, 250)
-
-# Close gaps between edges (double page clouse => rectangle kernel)
-edges_image = cv2.morphologyEx(edges_image, cv2.MORPH_CLOSE, np.ones((5, 11)))
-implt(edges_image, 'gray', 'Edges')
-
-
-def four_corners_sort(pts):
-    """ Sort corners: top-left, bot-left, bot-right, top-right"""
+# Four_point_transform
+def order_points(pts):
+    # initialzie a list of coordinates that will be ordered
+    # such that the first entry in the list is the top-left,
+    # the second entry is the top-right, the third is the
+    # bottom-right, and the fourth is the bottom-left
+    rect = np.zeros((4, 2), dtype="float32")  # Ma trận 0 kích thước 4x2, kiểu float32
+    # Ma trận tương ứng là tọa độ của điểm  trên-trái, trên-phải, dưới-trái, dưới-phải
+    # the top-left point will have the smallest sum, whereas
+    # the bottom-right point will have the largest sum
+    s = pts.sum(axis=1)  # Tính tổng theo hàng
+    rect[0] = pts[np.argmin(s)]  # Trên-trái
+    rect[2] = pts[np.argmax(s)]  # Dưới-phải
+    # now, compute the difference between the points, the
+    # top-right point will have the smallest difference,
+    # whereas the bottom-left will have the largest difference
     diff = np.diff(pts, axis=1)
-    summ = pts.sum(axis=1)
-    return np.array([pts[np.argmin(summ)],
-                     pts[np.argmax(diff)],
-                     pts[np.argmax(summ)],
-                     pts[np.argmin(diff)]])
+    rect[1] = pts[np.argmin(diff)]  # top-right
+    rect[3] = pts[np.argmax(diff)]  # bottom-left
+    # return the ordered coordinates
+    return rect
 
 
-def contour_offset(cnt, offset):
-    """ Offset contour because of 5px border """
-    cnt += offset
-    cnt[cnt < 0] = 0
-    return cnt
+def four_point_transform(image, pts):
+    # obtain a consistent order of the points and unpack them
+    # individually
+    rect = order_points(pts)  # Tìm 4 góc từ hình nhận được
+    (tl, tr, br, bl) = rect  # Lấy 4 góc
+    # compute the width of the new image, which will be the
+    # maximum distance between bottom-right and bottom-left
+    # x-coordiates or the top-right and top-left x-coordinates
+    widthA = np.sqrt(((br[0] - bl[0]) ** 2) + ((br[1] - bl[1]) ** 2))
+    widthB = np.sqrt(((tr[0] - tl[0]) ** 2) + ((tr[1] - tl[1]) ** 2))
+    maxWidth = max(int(widthA), int(widthB))
+    # compute the height of the new image, which will be the
+    # maximum distance between the top-right and bottom-right
+    # y-coordinates or the top-left and bottom-left y-coordinates
+    heightA = np.sqrt(((tr[0] - br[0]) ** 2) + ((tr[1] - br[1]) ** 2))
+    heightB = np.sqrt(((tl[0] - bl[0]) ** 2) + ((tl[1] - bl[1]) ** 2))
+    maxHeight = max(int(heightA), int(heightB))
+    # now that we have the dimensions of the new image, construct
+    # the set of destination points to obtain a "birds eye view",
+    # (i.e. top-down view) of the image, again specifying points
+    # in the top-left, top-right, bottom-right, and bottom-left
+    # order
+    dst = np.array([  # Tạo mảng 4x2 cách điểm cần căn chỉnh
+        [0, 0],  # tl
+        [maxWidth - 1, 0],  # tr
+        [maxWidth - 1, maxHeight - 1],  # br
+        [0, maxHeight - 1]], dtype="float32")  # bl
+    # compute the perspective transform matrix and then apply it
+    M = cv2.getPerspectiveTransform(rect, dst)
+    warped = cv2.warpPerspective(image, M, (maxWidth, maxHeight))
+    # return the warped image
+    return warped
 
 
-def find_page_contours(edges, img):
-    """ Finding corner points of page contour """
-    # Getting contours
-    im2, contours, hierarchy = cv2.findContours(edges, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+# construct the argument parser and parse the arguments
+# ap = argparse.ArgumentParser()
+# ap.add_argument("-i", "--image", required = True,
+# 	help = "Path to the image to be scanned")
+# args = vars(ap.parse_args())
 
-    # Finding biggest rectangle otherwise return original corners
-    height = edges.shape[0]
-    width = edges.shape[1]
-    MIN_COUNTOUR_AREA = height * width * 0.5
-    MAX_COUNTOUR_AREA = (width - 10) * (height - 10)
+blackLower = (0, 0, 0)
+blackUpper = (255, 255, 20)
 
-    max_area = MIN_COUNTOUR_AREA
-    page_contour = np.array([[0, 0],
-                             [0, height - 5],
-                             [width - 5, height - 5],
-                             [width - 5, 0]])
+# Step 1: Edge Detection
+# load the image and compute the ratio of the old height
+# to the new height, clone it, and resize it
+image = cv2.imread("test.jpg")
+ratio = image.shape[0] / 500.0
+orig = image.copy()
+image = imutils.resize(image, height=500)
+# convert the image to grayscale, blur it, and find edges
+# in the image
 
-    for cnt in contours:
-        perimeter = cv2.arcLength(cnt, True)
-        approx = cv2.approxPolyDP(cnt, 0.03 * perimeter, True)
+blurred = cv2.GaussianBlur(image, (5, 5), 0)
+hsv = cv2.cvtColor(blurred, cv2.COLOR_BGR2HSV)
 
-        # Page has 4 corners and it is convex
-        if (len(approx) == 4 and
-                cv2.isContourConvex(approx) and
-                max_area < cv2.contourArea(approx) < MAX_COUNTOUR_AREA):
-            max_area = cv2.contourArea(approx)
-            page_contour = approx[:, 0]
+gray = cv2.cvtColor(blurred, cv2.COLOR_BGR2GRAY)
+edged = cv2.Canny(gray, 75, 200)
 
-    # Sort corners and offset them
-    page_contour = four_corners_sort(page_contour)
-    return contour_offset(page_contour, (-5, -5))
+mask = cv2.inRange(hsv, blackLower, blackUpper)
 
+mask = cv2.erode(mask, None, iterations=2)
+mask = cv2.dilate(mask, None, iterations=2)
 
-page_contour = find_page_contours(edges_image, resize(image))
-print("PAGE CONTOUR:")
-print(page_contour)
-implt(cv2.drawContours(resize(image), [page_contour], -1, (0, 255, 0), 3))
+# gray = cv2.cvtColor(blurred, cv2.COLOR_BGR2GRAY)
+# edged = cv2.Canny(gray, 75, 200)
 
-# Recalculate to original scale
-page_contour = page_contour.dot(ratio(image))
+# show the original image and the edge detected image
+print("STEP 1: Edge Detection")
+cv2.imshow("Image", image)
+cv2.imshow("Edged", mask)
+cv2.waitKey(0)
+cv2.destroyAllWindows()
 
+# # Step 2: Finding Contours
+# # find the contours in the edged image, keeping only the
+# # largest ones, and initialize the screen contour
+# cnts = cv2.findContours(mask.copy(), cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)  # Trả về bao gồm điểm trong và ngoài của đường viền và list candy
+# cnts = imutils.grab_contours(cnts)  # Lấy điểm đường viền
+# cnts = sorted(cnts, key = cv2.contourArea, reverse=True)[:]  # sắp xếp để loại bỏ các chấm nhỏ và 4 giá trị đầu (vì là hình chữ nhật)
+#
+# # loop over the contours
+# for c in cnts:
+#     # approximate the contour
+#     peri = cv2.arcLength(c, True)    # Hàm tính toán độ dài đường cong hoặc chu vi đường viền kín với điều kiện đường cong đóng
+#     approx = cv2.approxPolyDP(c, 0.02 * peri, True) # Tính xấp xỉ đường cong đa giác với độ chính xác biết trước
+#     # if our approximated contour has four points, then we
+#     # can assume that we have found our screen
+#     if len(approx) == 4:
+#         screenCnt = approx
+#         break
+#
+# # show the contour (outline) of the piece of paper
+# print("STEP 2: Find contours of paper")
+# cv2.drawContours(image, [screenCnt], -1, (0, 255, 0), 2)
+# cv2.imshow("Outline", image)
+# cv2.waitKey(0)
+# cv2.destroyAllWindows()
 
-def persp_transform(img, s_points):
-    """ Transform perspective from start points to target points """
-    # Euclidean distance - calculate maximum height and width
-    height = max(np.linalg.norm(s_points[0] - s_points[1]),
-                 np.linalg.norm(s_points[2] - s_points[3]))
-    width = max(np.linalg.norm(s_points[1] - s_points[2]),
-                np.linalg.norm(s_points[3] - s_points[0]))
-
-    # Create target points
-    t_points = np.array([[0, 0],
-                         [0, height],
-                         [width, height],
-                         [width, 0]], np.float32)
-
-    # getPerspectiveTransform() needs float32
-    if s_points.dtype != np.float32:
-        s_points = s_points.astype(np.float32)
-
-    M = cv2.getPerspectiveTransform(s_points, t_points)
-    return cv2.warpPerspective(img, M, (int(width), int(height)))
-
-
-newImage = persp_transform(image, page_contour)
-implt(newImage, t='Result')
+# # Step 3: Apply a Perspective Transform & Threshold
+# # apply the four point transform to obtain a top-down
+# # view of the original image
+# warped = four_point_transform(orig, screenCnt.reshape(4, 2) * ratio)
+# # convert the warped image to grayscale, then threshold it
+# # to give it that 'black and white' paper effect
+# # warped = cv2.cvtColor(warped, cv2.COLOR_BGR2GRAY)
+# # T = threshold_local(warped, 11, offset=3, method="gaussian")
+# # warped = (warped > T).astype("uint8") * 255
+# # show the original and scanned images
+# print("STEP 3: Apply perspective transform")
+# cv2.imshow("Original", imutils.resize(orig, height=650))
+# cv2.imshow("Scanned", imutils.resize(warped, height=650))
+# cv2.waitKey(0)

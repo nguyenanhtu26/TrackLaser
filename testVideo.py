@@ -62,11 +62,14 @@ def four_point_transform(image, pts):
 
 
 # Doc file video (khoảng 60 khung/s)
-cap = cv2.VideoCapture("video/testVideo2.mp4")
+cap = cv2.VideoCapture("video/testVideo3.mp4")
 
 # Khai báo tạo video
 fourcc = cv2.VideoWriter_fourcc(*'XVID')
 outVideo = cv2.VideoWriter('output.avi', fourcc, 5, (1280, 720))
+
+blackLower = (0, 0, 0)
+blackUpper = (255, 255, 20)
 
 frameThu = 0
 while True:
@@ -88,9 +91,16 @@ while True:
 
     # convert the image to grayscale, blur it, and find edges
     # in the image
-    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-    gray = cv2.GaussianBlur(gray, (5, 5), 0)
+    blurred = cv2.GaussianBlur(frame, (5, 5), 0)
+    hsv = cv2.cvtColor(blurred, cv2.COLOR_BGR2HSV)
+
+    gray = cv2.cvtColor(blurred, cv2.COLOR_BGR2GRAY)
     edged = cv2.Canny(gray, 75, 200)
+
+    mask = cv2.inRange(hsv, blackLower, blackUpper)
+
+    mask = cv2.erode(mask, None, iterations=2)
+    mask = cv2.dilate(mask, None, iterations=2)
     # show the original image and the edge detected image
     # print("STEP 1: Edge Detection")
     # cv2.imshow("Image", frame)
@@ -101,9 +111,9 @@ while True:
     # Step 2: Finding Contours
     # find the contours in the edged image, keeping only the
     # largest ones, and initialize the screen contour
-    cnts = cv2.findContours(edged.copy(), cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
+    cnts = cv2.findContours(mask.copy(), cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
     cnts = imutils.grab_contours(cnts)
-    cnts = sorted(cnts, key=cv2.contourArea, reverse=True)[:5]
+    cnts = sorted(cnts, key=cv2.contourArea, reverse=True)[:]
     # loop over the contours
     for c in cnts:
         # approximate the contour

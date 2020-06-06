@@ -33,8 +33,8 @@ def order_points(pts):
 def four_point_transform(image, pts):
     # obtain a consistent order of the points and unpack them
     # individually
-    rect = order_points(pts)
-    (tl, tr, br, bl) = rect
+    rect = order_points(pts)  # Tìm 4 góc từ hình nhận được
+    (tl, tr, br, bl) = rect  # Lấy 4 góc
     # compute the width of the new image, which will be the
     # maximum distance between bottom-right and bottom-left
     # x-coordiates or the top-right and top-left x-coordinates
@@ -52,11 +52,11 @@ def four_point_transform(image, pts):
     # (i.e. top-down view) of the image, again specifying points
     # in the top-left, top-right, bottom-right, and bottom-left
     # order
-    dst = np.array([
-        [0, 0],
-        [maxWidth - 1, 0],
-        [maxWidth - 1, maxHeight - 1],
-        [0, maxHeight - 1]], dtype="float32")
+    dst = np.array([  # Tạo mảng 4x2 cách điểm cần căn chỉnh
+        [0, 0],  # tl
+        [maxWidth - 1, 0],  # tr
+        [maxWidth - 1, maxHeight - 1],  # br
+        [0, maxHeight - 1]], dtype="float32")  # bl
     # compute the perspective transform matrix and then apply it
     M = cv2.getPerspectiveTransform(rect, dst)
     warped = cv2.warpPerspective(image, M, (maxWidth, maxHeight))
@@ -92,20 +92,24 @@ edged = cv2.Canny(gray, 75, 200)
 # Step 2: Finding Contours
 # find the contours in the edged image, keeping only the
 # largest ones, and initialize the screen contour
-cnts = cv2.findContours(edged.copy(), cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
-cnts = imutils.grab_contours(cnts)
-cnts = sorted(cnts, key=cv2.contourArea, reverse=True)[:5]
+cnts = cv2.findContours(edged.copy(), cv2.RETR_LIST,
+                        cv2.CHAIN_APPROX_SIMPLE)  # Trả về bao gồm điểm trong và ngoài của đường viền và list candy
+cnts = imutils.grab_contours(cnts)  # Lấy điểm đường viền
+cnts = sorted(cnts, key=cv2.contourArea, reverse=True)[
+       :]  # sắp xếp để loại bỏ các chấm nhỏ và 4 giá trị đầu (vì là hình chữ nhật)
 
 # loop over the contours
 for c in cnts:
     # approximate the contour
-    peri = cv2.arcLength(c, True)
-    approx = cv2.approxPolyDP(c, 0.02 * peri, True)
+    peri = cv2.arcLength(c,
+                         True)  # Hàm tính toán độ dài đường cong hoặc chu vi đường viền kín với điều kiện đường cong đóng
+    approx = cv2.approxPolyDP(c, 0.02 * peri, True)  # Tính xấp xỉ đường cong đa giác với độ chính xác biết trước
     # if our approximated contour has four points, then we
     # can assume that we have found our screen
     if len(approx) == 4:
         screenCnt = approx
         break
+
 # show the contour (outline) of the piece of paper
 print("STEP 2: Find contours of paper")
 cv2.drawContours(image, [screenCnt], -1, (0, 255, 0), 2)
