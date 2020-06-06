@@ -62,14 +62,14 @@ def four_point_transform(image, pts):
 
 
 # Doc file video (khoảng 60 khung/s)
-cap = cv2.VideoCapture("video/testVideo3.mp4")
+cap = cv2.VideoCapture("video/test6.mp4")
 
 # Khai báo tạo video
 fourcc = cv2.VideoWriter_fourcc(*'XVID')
 outVideo = cv2.VideoWriter('output.avi', fourcc, 5, (1280, 720))
 
-blackLower = (0, 0, 0)
-blackUpper = (255, 255, 20)
+blackLower = (0, 0, 60)
+blackUpper = (255, 255, 120)
 
 frameThu = 0
 while True:

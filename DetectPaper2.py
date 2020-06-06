@@ -70,13 +70,13 @@ def four_point_transform(image, pts):
 # 	help = "Path to the image to be scanned")
 # args = vars(ap.parse_args())
 
-blackLower = (0, 0, 0)
-blackUpper = (255, 255, 20)
+blackLower = (0, 0, 60)
+blackUpper = (255, 255, 120)
 
 # Step 1: Edge Detection
 # load the image and compute the ratio of the old height
 # to the new height, clone it, and resize it
-image = cv2.imread("test.jpg")
+image = cv2.imread("anhOrig275.jpg")
 ratio = image.shape[0] / 500.0
 orig = image.copy()
 image = imutils.resize(image, height=500)
@@ -96,6 +96,8 @@ mask = cv2.dilate(mask, None, iterations=2)
 
 # gray = cv2.cvtColor(blurred, cv2.COLOR_BGR2GRAY)
 # edged = cv2.Canny(gray, 75, 200)
+
+# res = cv2.bitwise_and(hsv, hsv,  mask= mask)
 
 # show the original image and the edge detected image
 print("STEP 1: Edge Detection")
@@ -124,10 +126,10 @@ cv2.destroyAllWindows()
 #
 # # show the contour (outline) of the piece of paper
 # print("STEP 2: Find contours of paper")
-# cv2.drawContours(image, [screenCnt], -1, (0, 255, 0), 2)
-# cv2.imshow("Outline", image)
-# cv2.waitKey(0)
-# cv2.destroyAllWindows()
+# # cv2.drawContours(image, [screenCnt], -1, (0, 255, 0), 2)
+# # cv2.imshow("Outline", image)
+# # cv2.waitKey(0)
+# # cv2.destroyAllWindows()
 
 # # Step 3: Apply a Perspective Transform & Threshold
 # # apply the four point transform to obtain a top-down
