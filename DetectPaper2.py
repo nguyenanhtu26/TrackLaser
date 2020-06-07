@@ -73,10 +73,16 @@ def four_point_transform(image, pts):
 blackLower = (0, 0, 60)
 blackUpper = (255, 255, 120)
 
+new_width = 600
+new_height = 400
+
+whiteLower = (0, 0, 210)
+whiteUpper = (255, 255, 255)
+
 # Step 1: Edge Detection
 # load the image and compute the ratio of the old height
 # to the new height, clone it, and resize it
-image = cv2.imread("anhOrig275.jpg")
+image = cv2.imread("anhOrig125.jpg")
 ratio = image.shape[0] / 500.0
 orig = image.copy()
 image = imutils.resize(image, height=500)
@@ -101,47 +107,83 @@ mask = cv2.dilate(mask, None, iterations=2)
 
 # show the original image and the edge detected image
 print("STEP 1: Edge Detection")
-cv2.imshow("Image", image)
-cv2.imshow("Edged", mask)
-cv2.waitKey(0)
-cv2.destroyAllWindows()
+# cv2.imshow("Image", image)
+# cv2.imshow("Edged", mask)
+# cv2.waitKey(0)
+# cv2.destroyAllWindows()
 
-# # Step 2: Finding Contours
-# # find the contours in the edged image, keeping only the
-# # largest ones, and initialize the screen contour
-# cnts = cv2.findContours(mask.copy(), cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)  # Trả về bao gồm điểm trong và ngoài của đường viền và list candy
-# cnts = imutils.grab_contours(cnts)  # Lấy điểm đường viền
-# cnts = sorted(cnts, key = cv2.contourArea, reverse=True)[:]  # sắp xếp để loại bỏ các chấm nhỏ và 4 giá trị đầu (vì là hình chữ nhật)
-#
-# # loop over the contours
-# for c in cnts:
-#     # approximate the contour
-#     peri = cv2.arcLength(c, True)    # Hàm tính toán độ dài đường cong hoặc chu vi đường viền kín với điều kiện đường cong đóng
-#     approx = cv2.approxPolyDP(c, 0.02 * peri, True) # Tính xấp xỉ đường cong đa giác với độ chính xác biết trước
-#     # if our approximated contour has four points, then we
-#     # can assume that we have found our screen
-#     if len(approx) == 4:
-#         screenCnt = approx
-#         break
-#
-# # show the contour (outline) of the piece of paper
-# print("STEP 2: Find contours of paper")
-# # cv2.drawContours(image, [screenCnt], -1, (0, 255, 0), 2)
-# # cv2.imshow("Outline", image)
-# # cv2.waitKey(0)
-# # cv2.destroyAllWindows()
+# Step 2: Finding Contours
+# find the contours in the edged image, keeping only the
+# largest ones, and initialize the screen contour
+cnts = cv2.findContours(mask.copy(), cv2.RETR_LIST,
+                        cv2.CHAIN_APPROX_SIMPLE)  # Trả về bao gồm điểm trong và ngoài của đường viền và list candy
+cnts = imutils.grab_contours(cnts)  # Lấy điểm đường viền
+cnts = sorted(cnts, key=cv2.contourArea, reverse=True)[
+       :]  # sắp xếp để loại bỏ các chấm nhỏ và 4 giá trị đầu (vì là hình chữ nhật)
 
-# # Step 3: Apply a Perspective Transform & Threshold
-# # apply the four point transform to obtain a top-down
-# # view of the original image
-# warped = four_point_transform(orig, screenCnt.reshape(4, 2) * ratio)
-# # convert the warped image to grayscale, then threshold it
-# # to give it that 'black and white' paper effect
-# # warped = cv2.cvtColor(warped, cv2.COLOR_BGR2GRAY)
-# # T = threshold_local(warped, 11, offset=3, method="gaussian")
-# # warped = (warped > T).astype("uint8") * 255
-# # show the original and scanned images
-# print("STEP 3: Apply perspective transform")
+# loop over the contours
+for c in cnts:
+    # approximate the contour
+    peri = cv2.arcLength(c,
+                         True)  # Hàm tính toán độ dài đường cong hoặc chu vi đường viền kín với điều kiện đường cong đóng
+    approx = cv2.approxPolyDP(c, 0.02 * peri, True)  # Tính xấp xỉ đường cong đa giác với độ chính xác biết trước
+    # if our approximated contour has four points, then we
+    # can assume that we have found our screen
+    if len(approx) == 4:
+        screenCnt = approx
+        break
+
+# show the contour (outline) of the piece of paper
+print("STEP 2: Find contours of paper")
+# cv2.drawContours(image, [screenCnt], -1, (0, 255, 0), 2)
+# cv2.imshow("Outline", image)
+# cv2.waitKey(0)
+# cv2.destroyAllWindows()
+
+# Step 3: Apply a Perspective Transform & Threshold
+# apply the four point transform to obtain a top-down
+# view of the original image
+warped = four_point_transform(orig, screenCnt.reshape(4, 2) * ratio)
+# convert the warped image to grayscale, then threshold it
+# to give it that 'black and white' paper effect
+# warped = cv2.cvtColor(warped, cv2.COLOR_BGR2GRAY)
+# show the original and scanned images
+print("STEP 3: Apply perspective transform")
 # cv2.imshow("Original", imutils.resize(orig, height=650))
 # cv2.imshow("Scanned", imutils.resize(warped, height=650))
 # cv2.waitKey(0)
+
+# STEP 4: Detect point laser coordinates
+warped = cv2.resize(src=warped, dsize=(new_width, new_height))
+
+blurredWar = cv2.GaussianBlur(warped, (5, 5), 0)
+hsvWar = cv2.cvtColor(blurredWar, cv2.COLOR_BGR2HSV)
+
+maskWar = cv2.inRange(hsvWar, whiteLower, whiteUpper)
+
+maskWar = cv2.erode(maskWar, None, iterations=2)
+maskWar = cv2.dilate(maskWar, None, iterations=2)  # Đang là ảnh Gray với 2 mức xám 0 và 255
+
+# # convert the grayscale image to binary image
+# ret,thresh = cv2.threshold(maskWar,127,255,0)
+#
+# # calculate moments of binary image
+# M = cv2.moments(thresh)
+#
+# # calculate x,y coordinate of center
+# cX = int(M["m10"] / M["m00"])
+# cY = int(M["m01"] / M["m00"])
+#
+# # put text and highlight the center
+# print(cX, cY)
+
+print("STEP 4: Detect point laser coordinates")
+cv2.imshow("Image wraped", warped)
+cv2.imshow("Laser point", maskWar)
+cv2.waitKey(0)
+cv2.destroyAllWindows()
+
+# STEP 5: Velocity calculation of laser point
+
+
+# STEP 6: Show results

@@ -62,7 +62,7 @@ def four_point_transform(image, pts):
 
 
 # Doc file video (khoảng 60 khung/s)
-cap = cv2.VideoCapture("video/test6.mp4")
+cap = cv2.VideoCapture("video/test_6t7.mp4")
 
 # Khai báo tạo video
 fourcc = cv2.VideoWriter_fourcc(*'XVID')
@@ -71,7 +71,16 @@ outVideo = cv2.VideoWriter('output.avi', fourcc, 5, (1280, 720))
 blackLower = (0, 0, 60)
 blackUpper = (255, 255, 120)
 
+whiteLower = (0, 0, 210)
+whiteUpper = (255, 255, 255)
+
+cXPre = 0
+cYPre = 0
 frameThu = 0
+vel = 0
+new_width = 600
+new_height = 400
+
 while True:
     # Read a new frame
     ok, frame = cap.read()
@@ -151,6 +160,41 @@ while True:
         cv2.imwrite(fileNameImage, warped)
     except:
         print("Lỗi ở frame thứ", frameThu)
+
+    # STEP 4: Detect point laser coordinates
+    warped = cv2.resize(src=warped, dsize=(new_width, new_height))
+
+    blurredWar = cv2.GaussianBlur(warped, (5, 5), 0)
+    hsvWar = cv2.cvtColor(blurredWar, cv2.COLOR_BGR2HSV)
+
+    maskWar = cv2.inRange(hsvWar, whiteLower, whiteUpper)
+
+    maskWar = cv2.erode(maskWar, None, iterations=2)
+    maskWar = cv2.dilate(maskWar, None, iterations=2)  # Đang là ảnh Gray với 2 mức xám 0 và 255
+
+    # convert the grayscale image to binary image
+    ret, thresh = cv2.threshold(maskWar, 127, 255, 0)
+
+    # calculate moments of binary image
+    M = cv2.moments(thresh)
+
+    # calculate x,y coordinate of center
+    cX = int(M["m10"] / M["m00"])
+    cY = int(M["m01"] / M["m00"])
+
+    # put text and highlight the center
+    print("Tọa độ tâm: ", cX, cY)
+    # print("STEP 4: Detect point laser coordinates")
+
+    # STEP 5: Velocity calculation of laser point
+    if (cYPre != 0 and cYPre != 0):
+        dis = np.sqrt(((cX - cXPre) ** 2) + ((cY - cYPre) ** 2))
+        vel = dis * 60  # Because 60fps
+    cYPre = cY
+    cXPre = cX
+
+    # STEP 6: Show results
+    print("Vận tốc: ", vel)
 
     # key = cv2.waitKey(1) & 0xff  # Neu nhan q thi thoat
     # if key == ord('q'):
