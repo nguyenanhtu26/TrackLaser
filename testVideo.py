@@ -4,7 +4,7 @@ import numpy as np
 import argparse
 import cv2
 import imutils
-
+import matplotlib.pyplot as plt
 
 def order_points(pts):
     # initialzie a list of coordinates that will be ordered
@@ -71,15 +71,17 @@ outVideo = cv2.VideoWriter('output.avi', fourcc, 5, (1280, 720))
 blackLower = (0, 0, 60)
 blackUpper = (255, 255, 120)
 
-whiteLower = (0, 0, 210)
+whiteLower = (0, 0, 245)
 whiteUpper = (255, 255, 255)
 
-cXPre = 0
-cYPre = 0
+cXPre = 1
+cYPre = 1
 frameThu = 0
 vel = 0
-new_width = 600
-new_height = 400
+new_width = 1096
+new_height = 800
+
+disTwoPoint = []
 
 while True:
     # Read a new frame
@@ -187,18 +189,35 @@ while True:
     # print("STEP 4: Detect point laser coordinates")
 
     # STEP 5: Velocity calculation of laser point
-    if (cYPre != 0 and cYPre != 0):
-        dis = np.sqrt(((cX - cXPre) ** 2) + ((cY - cYPre) ** 2))
-        vel = dis * 60  # Because 60fps
-    cYPre = cY
-    cXPre = cX
+    if (frameThu == 1):
+        cYPre = cY
+        cXPre = cX
 
-    # STEP 6: Show results
-    print("Vận tốc: ", vel)
+    if (cYPre != 0 and cYPre != 0 and frameThu % 10 == 0):
+        dis = np.sqrt(((cX - cXPre) ** 2) + ((cY - cYPre) ** 2)) / 40
+        vel = dis * 3  # Because 30 fps
+        print("Vận tốc: ", vel, "cm/s")
+        cYPre = cY
+        cXPre = cX
+
+    disTwoPoint.append(cX)
 
     # key = cv2.waitKey(1) & 0xff  # Neu nhan q thi thoat
     # if key == ord('q'):
     #     break
+averagedDis = round(np.average(disTwoPoint))
+diffDis = (disTwoPoint - averagedDis) / 40
+
+time = (np.arange(frameThu)) / 30
+
+plt.plot(time, diffDis, color='green', linestyle='dashed', linewidth=2,
+         marker='o', markerfacecolor='red', markersize=5)
+
+plt.xlabel('Thời gian(s)')
+plt.ylabel('Khoảng cách sai lêch theo phương ngang(cm)')
+
+plt.title('Dao động của người quanh giá trị trung bình')
+plt.show()
 
 # Hiện thị video
 cv2.destroyAllWindows()

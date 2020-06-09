@@ -71,19 +71,23 @@ def four_point_transform(image, pts):
 # args = vars(ap.parse_args())
 
 blackLower = (0, 0, 60)
-blackUpper = (255, 255, 120)
+blackUpper = (180, 255, 110)
 
-new_width = 600
-new_height = 400
+new_width = 1096
+new_height = 800
 
-whiteLower = (0, 0, 210)
-whiteUpper = (255, 255, 255)
+whiteLower = (0, 0, 245)
+whiteUpper = (180, 255, 255)
 
 # Step 1: Edge Detection
 # load the image and compute the ratio of the old height
 # to the new height, clone it, and resize it
-image = cv2.imread("anhOrig125.jpg")
-ratio = image.shape[0] / 500.0
+image = cv2.imread("anhOrig320.jpg")
+try:
+    ratio = image.shape[0] / 500.0
+except:
+    print("Ảnh nhập vào chưa đúng")
+
 orig = image.copy()
 image = imutils.resize(image, height=500)
 # convert the image to grayscale, blur it, and find edges
@@ -119,7 +123,7 @@ cnts = cv2.findContours(mask.copy(), cv2.RETR_LIST,
                         cv2.CHAIN_APPROX_SIMPLE)  # Trả về bao gồm điểm trong và ngoài của đường viền và list candy
 cnts = imutils.grab_contours(cnts)  # Lấy điểm đường viền
 cnts = sorted(cnts, key=cv2.contourArea, reverse=True)[
-       :]  # sắp xếp để loại bỏ các chấm nhỏ và 4 giá trị đầu (vì là hình chữ nhật)
+       :4]  # sắp xếp để loại bỏ các chấm nhỏ và 4 giá trị đầu (vì là hình chữ nhật)
 
 # loop over the contours
 for c in cnts:
@@ -164,26 +168,33 @@ maskWar = cv2.inRange(hsvWar, whiteLower, whiteUpper)
 maskWar = cv2.erode(maskWar, None, iterations=2)
 maskWar = cv2.dilate(maskWar, None, iterations=2)  # Đang là ảnh Gray với 2 mức xám 0 và 255
 
-# # convert the grayscale image to binary image
-# ret,thresh = cv2.threshold(maskWar,127,255,0)
-#
-# # calculate moments of binary image
-# M = cv2.moments(thresh)
-#
-# # calculate x,y coordinate of center
-# cX = int(M["m10"] / M["m00"])
-# cY = int(M["m01"] / M["m00"])
-#
-# # put text and highlight the center
-# print(cX, cY)
+# convert the grayscale image to binary image
+ret, thresh = cv2.threshold(maskWar, 127, 255, 0)
+
+# calculate moments of binary image
+M = cv2.moments(thresh)
+
+# calculate x,y coordinate of center
+cX = int(M["m10"] / M["m00"])
+cY = int(M["m01"] / M["m00"])
+
+# put text and highlight the center
+print(cX, cY)
 
 print("STEP 4: Detect point laser coordinates")
+# cv2.imshow("Image wraped", warped)
+# cv2.imshow("Laser point", maskWar)
+# cv2.waitKey(0)
+# cv2.destroyAllWindows()
+
+# STEP 5: Velocity calculation of laser point
+disHor = cX / 40 - 1.9
+print("Khoảng cách theo chiều ngang:", disHor)
+
+print("STEP 5: Test khoảng cách ")
 cv2.imshow("Image wraped", warped)
 cv2.imshow("Laser point", maskWar)
 cv2.waitKey(0)
 cv2.destroyAllWindows()
-
-# STEP 5: Velocity calculation of laser point
-
 
 # STEP 6: Show results
